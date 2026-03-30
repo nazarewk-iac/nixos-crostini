@@ -2,9 +2,7 @@
   lib,
   pkgs,
   ...
-}:
-
-let
+}: let
   cros-container-guest-tools-src-version = "4ef17fb17e0617dff3f6e713c79ce89fee4e60f7";
 
   cros-container-guest-tools-src = pkgs.fetchgit {
@@ -34,9 +32,7 @@ let
     SOMMELIER_SCALE = "0.5";
     SOMMELIER_DPI = "72,96,160,240,320,480";
   };
-
-in
-{
+in {
   networking = {
     # The eth0 interface in this container/VM can only be accessed from the host.
     firewall.enable = false;
@@ -115,9 +111,9 @@ in
         garcon = {
           # TODO: In the original service definition this only starts _after_ sommelier.
           description = "Chromium OS Garcon Bridge";
-          wantedBy = [ "default.target" ];
+          wantedBy = ["default.target"];
           serviceConfig = {
-            ExecStart = "/opt/google/cros-containers/bin/garcon --server";
+            ExecStart = "/opt/google/cros-containers/bin/garcon --server --allow_any_user";
             Type = "simple";
             ExecStopPost = "/opt/google/cros-containers/bin/guest_service_failure_notifier cros-garcon";
             Restart = "always";
@@ -139,23 +135,19 @@ in
 
         "sommelier@" = {
           description = "Parent sommelier listening on socket wayland-%i";
-          wantedBy = [ "default.target" ];
-          path = with pkgs; [
-            systemd # systemctl
-            bash # sh
-          ];
+          wantedBy = ["default.target"];
           serviceConfig = {
             Type = "notify";
             ExecStart = ''
               /opt/google/cros-containers/bin/sommelier \
-                            --parent \
-                            --sd-notify="READY=1" \
-                            --socket=wayland-%i \
-                            --stable-scaling \
-                            --enable-linux-dmabuf \
-                            sh -c \
-                                "systemctl --user set-environment ''${WAYLAND_DISPLAY_VAR}=$''${WAYLAND_DISPLAY}; \
-                                 systemctl --user import-environment SOMMELIER_VERSION"
+                --parent \
+                --sd-notify="READY=1" \
+                --socket=wayland-%i \
+                --stable-scaling \
+                --enable-linux-dmabuf \
+                ${pkgs.bash}/bin/sh -c \
+                    "${pkgs.systemd}/bin/systemctl --user set-environment ''${WAYLAND_DISPLAY_VAR}=$''${WAYLAND_DISPLAY}; \
+                     ${pkgs.systemd}/bin/systemctl --user import-environment SOMMELIER_VERSION"
             '';
             ExecStopPost = "/opt/google/cros-containers/bin/guest_service_failure_notifier sommelier";
           };
@@ -169,13 +161,7 @@ in
 
         "sommelier-x@" = {
           description = "Parent sommelier listening on socket wayland-%i";
-          wantedBy = [ "default.target" ];
-          path = with pkgs; [
-            systemd # systemctl
-            bash # sh
-            xorg.xauth
-            tinyxxd
-          ];
+          wantedBy = ["default.target"];
           serviceConfig = {
             Type = "notify";
             ExecStart = ''
@@ -188,12 +174,12 @@ in
                 --stable-scaling \
                 --enable-xshape \
                 --enable-linux-dmabuf \
-                sh -c \
-                    "systemctl --user set-environment ''${DISPLAY_VAR}=$''${DISPLAY}; \
-                     systemctl --user set-environment ''${XCURSOR_SIZE_VAR}=$''${XCURSOR_SIZE}; \
-                     systemctl --user import-environment SOMMELIER_VERSION; \
-                     touch ''${HOME}/.Xauthority; \
-                     xauth -f ''${HOME}/.Xauthority add :%i . $(xxd -l 16 -p /dev/urandom); \
+                ${pkgs.bash}/bin/sh -c \
+                    "${pkgs.systemd}/bin/systemctl --user set-environment ''${DISPLAY_VAR}=$''${DISPLAY}; \
+                     ${pkgs.systemd}/bin/systemctl --user set-environment ''${XCURSOR_SIZE_VAR}=$''${XCURSOR_SIZE}; \
+                     ${pkgs.systemd}/bin/systemctl --user import-environment SOMMELIER_VERSION; \
+                     ${pkgs.coreutils}/bin/touch ''${HOME}/.Xauthority; \
+                     ${pkgs.xauth}/bin/xauth -f ''${HOME}/.Xauthority add :%i . $(${pkgs.tinyxxd}/bin/xxd -l 16 -p /dev/urandom); \
                      . /etc/sommelierrc"
             '';
             ExecStopPost = "/opt/google/cros-containers/bin/guest_service_failure_notifier sommelier-x";
