@@ -137,8 +137,7 @@
       systemd.tmpfiles.settings.nixos-crostini-baguette."/usr/share/zoneinfo".L = {
         argument = "/etc/zoneinfo";
       };
-      # Re-link the initScript (in case of toggling `boot.initrd.systemd.enable`)
-      systemd.tmpfiles.settings.nixos-crostini-baguette."/sbin/init".L.argument = "${config.system.build.toplevel}/${initScript}";
+      systemd.tmpfiles.settings.nixos-crostini-baguette."/sbin".d.mode = "0755";
 
       system = {
         activationScripts = {
@@ -146,8 +145,11 @@
             # Resize the avaialble space to the one provided by Baguette
             ''
               ${pkgs.btrfs-progs}/bin/btrfs filesystem resize max /
+            ''
+            # Re-link the initScript (in case of toggling `boot.initrd.systemd.enable`)
+            + ''
+              ln -sf "$systemConfig/${initScript}" /sbin/init
             '';
-
           # https://github.com/aldur/nixos-crostini/issues/3#issuecomment-3481799191
           modprobe = lib.mkForce "";
         };
