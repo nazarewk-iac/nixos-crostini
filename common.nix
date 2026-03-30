@@ -55,45 +55,10 @@ in {
       pkgs.usbutils # lsusb
     ];
 
-    etc = {
-      # Required because `tremplin` will look for it.
-      # Without it, `vmc start termina <container>` will fail.
-      "gshadow" = {
-        mode = "0640";
-        text = "";
-        group = "shadow";
-      };
-
-      # TODO: Even empty, this will stop `sommelier` from erroring out.
-      "sommelierrc" = {
-        mode = "0644";
-        text = ''
-          exit 0
-        '';
-      };
-    };
-
     # Load the environment populated from `sommelier`, e.g. `DISPLAY`.
     shellInit = builtins.readFile "${cros-container-guest-tools-src}/cros-sommelier/sommelier.sh";
-  };
-
-  system.activationScripts = {
-    # Activating sommelier-x will rely the bind-mount Xwailand executable. As
-    # far as I could debug, this path can't be controlled through env and would
-    # require re-compiling Xwayland (which is also dynamically loaded by the
-    # sommelier executable).
-    #
-    # Same for the `sftp-server` launched by `garcon`.
-    #
-    # These are ugly HACKs, but they work
-    xkb = ''
-      mkdir -p /usr/share/
-      ln -sf ${pkgs.xkeyboard_config}/share/X11/ /usr/share/
-    '';
-    sftp-server = ''
-      mkdir -p /usr/lib/openssh/
-      ln -sf ${pkgs.openssh}/libexec/sftp-server /usr/lib/openssh/sftp-server
-    '';
+    etc."nixos-crostini/cros-container-guest-tools".source = cros-container-guest-tools;
+    etc."nixos-crostini/cros-container-guest-tools-src".source = cros-container-guest-tools-src;
   };
 
   # Taken from https://aur.archlinux.org/packages/cros-container-guest-tools-git
@@ -106,6 +71,31 @@ in {
   };
 
   systemd = {
+    tmpfiles.settings.nixos-crotini = {
+      # Activating sommelier-x will rely the bind-mount Xwailand executable. As
+      # far as I could debug, this path can't be controlled through env and would
+      # require re-compiling Xwayland (which is also dynamically loaded by the
+      # sommelier executable).
+      #
+      # Same for the `sftp-server` launched by `garcon`.
+      #
+      # These are ugly HACKs, but they work
+      "/usr/share/X11".L.argument = "${pkgs.xkeyboard_config}/share/X11";
+      "/usr/lib/openssh/sftp-server".L.argument = "${pkgs.openssh}/libexec/sftp-server";
+
+      # Required because `tremplin` will look for it.
+      # Without it, `vmc start termina <container>` will fail.
+      "/etc/gshadow".f = {
+        mode = "0640";
+        group = "shadow";
+        argument = "";
+      };
+      # TODO: Even empty, this will stop `sommelier` from erroring out.
+      "/etc/sommelierrc".f = {
+        mode = "0644";
+        argument = "exit 0";
+      };
+    };
     user = {
       services = {
         garcon = {
